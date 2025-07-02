@@ -1,0 +1,211 @@
+
+  {
+    "name": "Upload File",
+    "method": "POST",
+    "url": "https://7stars.pythonanywhere.com/api/upload/"
+  },
+
+
+  {
+    "name": "Get All Uploads",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/all/"
+  },
+
+
+  {
+    "name": "Get Specific Upload Data",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/get/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Get Car History",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/history/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Get Images",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/image/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Get Videos",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/video/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Get Links",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/link/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Get Upload Times",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/time/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Get Speeds",
+    "method": "GET",
+    "url": "https://7stars.pythonanywhere.com/api/speed/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Delete Upload by Car ID",
+    "method": "DELETE",
+    "url": "https://7stars.pythonanywhere.com/api/delete/<car_id>/<car_id2>/"
+  },
+
+
+  {
+    "name": "Delete All Uploads",
+    "method": "DELETE",
+    "url": "https://7stars.pythonanywhere.com/api/delete_all/"
+  }
+
+
+raw code :
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Upload
+from .serializers import UploadSerializer
+
+@api_view(['POST'])
+def upload_file(request):
+    image = request.FILES.get('image')
+    video = request.FILES.get('video')
+    link = request.POST.get('link')
+    car_id = request.POST.get('car_id')
+    car_id2 = request.POST.get('car_id2')
+    person_name = request.POST.get('person_name')
+    speed = request.POST.get('speed')
+
+    if not image or not link or not car_id or not car_id2 or not person_name or not video or not speed:
+        return Response({"error": "Missing data"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # لو حبيت يبقي في  تسحيل مره واحده لكل حادثه ممكن تستعمله لو مش حابب تخزن الحوادث السابقه عشان مساحه التخزين هتستعمل ده وتزود methodتعملك   update
+    #if Upload.objects.filter(car_id=car_id, car_id2=car_id2).exists():
+    #    return Response({"error": "Upload with this car_id and car_id2 already exists"}, status=status.HTTP_400_BAD_REQUEST)
+
+    upload = Upload.objects.create(
+        image=image,
+        video=video,
+        link=link,
+        car_id=car_id,
+        car_id2=car_id2,
+        person_name=person_name,
+        speed=speed
+    )
+
+    return Response({
+        "message": "Uploaded successfully",
+        "upload_id": upload.id,
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def get_all(request):
+    uploads = Upload.objects.all()
+    serializer = UploadSerializer(uploads, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_all_data(request, car_id, car_id2):
+    try:
+        upload = Upload.objects.get(car_id=car_id, car_id2=car_id2)
+    except Upload.DoesNotExist:
+        return Response({"error": "No file found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UploadSerializer(upload)
+    return Response(serializer.data)
+
+
+
+@api_view(['GET'])
+def get_images(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2)
+    if not uploads:
+        return Response({"error": "No images found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response([{"image_url": u.image.url} for u in uploads])
+
+@api_view(['GET'])
+def get_videos(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2)
+    if not uploads:
+        return Response({"error": "No videos found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response([{"video_url": u.video.url} for u in uploads])
+
+@api_view(['GET'])
+def get_links(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2)
+    if not uploads:
+        return Response({"error": "No links found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response([{"link": u.link} for u in uploads])
+
+
+@api_view(['GET'])
+def get_times(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2)
+    if not uploads:
+        return Response({"error": "No timestamps found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response([{"uploaded_at": u.timestamp.isoformat()} for u in uploads])
+
+
+
+
+@api_view(['DELETE'])
+def delete_by_car_id(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2)
+    if not uploads.exists():
+        return Response({"error": "No files found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    uploads.delete()
+    return Response({"message": f"All files for car_id {car_id} car_id2 {car_id2} have been deleted."}, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+def delete_all(request):
+    Upload.objects.all().delete()
+    return Response({"message": "All files have been deleted."}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def get_car_history(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2).order_by('-timestamp')
+    if not uploads.exists():
+        return Response({"error": "No records found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UploadSerializer(uploads, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_speed(request, car_id, car_id2):
+    uploads = Upload.objects.filter(car_id=car_id, car_id2=car_id2)
+    if not uploads:
+        return Response({"error": "No speed found for this car_id and car_id2"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response([{"speed": u.speed} for u in uploads])
+
+
+
+
+
